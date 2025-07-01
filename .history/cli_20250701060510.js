@@ -23,13 +23,12 @@ class OrchestratorCLI {
 
   async start() {
     console.log(
-      chalk.green(`\n
-  ______   ____  __ ____  _   _  ___  _   ___   __   ___  _____    ___  _   _ _____ 
+      chalk.green(`\n  ______   ____  __ ____  _   _  ___  _   ___   __   ___  _____    ___  _   _ _____ 
  / ___\ \ / /  \/  |  _ \| | | |/ _ \| \ | \ \ / /  / _ \|  ___|  / _ \| \ | | ____|
  \___ \\ V /| |\/| | |_) | |_| | | | |  \| |\ V /  | | | | |_    | | | |  \| |  _|  
   ___) || | | |  | |  __/|  _  | |_| | |\  | | |   | |_| |  _|   | |_| | |\  | |___ 
  |____/ |_| |_|  |_|_|   |_| |_|\___/|_| \_| |_|    \___/|_|      \___/|_| \_|_____|
-                            MCP Orchestrator`)
+                                                                                    MCP Orchestrator`)
     );
     console.log(chalk.gray(`   Hub Server: ${SERVER_URL}`));
     console.log(chalk.yellow(`   Role: User/Orchestrator\n`));
