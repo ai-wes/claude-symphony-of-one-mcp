@@ -12,11 +12,9 @@
   },
   "scripts": {
     "start": "node mcp-server.js",
-    "start-wrapper": "node mcp-server-wrapper.js",
     "server": "node server.js",
     "cli": "node cli.js",
     "demo": "node demo-enhanced-cli.js",
-    "config": "node generate-config.js",
     "setup": "npm install && node setup.js",
     "test": "node test.js",
     "prepublishOnly": "npm run test"

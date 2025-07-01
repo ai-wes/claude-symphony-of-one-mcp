@@ -6,17 +6,13 @@
   "main": "mcp-server.js",
   "bin": {
     "claude-symphony-of-one-mcp": "./mcp-server.js",
-    "claude-symphony-of-one-mcp-wrapper": "./mcp-server-wrapper.js",
     "claude-symphony-of-one-server": "./server.js",
     "claude-symphony-of-one-cli": "./cli.js"
   },
   "scripts": {
     "start": "node mcp-server.js",
-    "start-wrapper": "node mcp-server-wrapper.js",
     "server": "node server.js",
     "cli": "node cli.js",
-    "demo": "node demo-enhanced-cli.js",
-    "config": "node generate-config.js",
     "setup": "npm install && node setup.js",
     "test": "node test.js",
     "prepublishOnly": "npm run test"
@@ -28,7 +24,7 @@
     "chokidar": "^3.5.0",
     "cors": "^2.8.5",
     "express": "^4.18.0",
-    "inquirer": "^9.3.7",
+    "inquirer": "^9.2.0",
     "readline": "^1.3.0",
     "readline-sync": "^1.4.10",
     "socket.io": "^4.7.0",
