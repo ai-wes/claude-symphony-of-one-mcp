@@ -1,0 +1,5 @@
+/.env
+/.npmignore
+/data
+/yarn.lock
+node_modules/

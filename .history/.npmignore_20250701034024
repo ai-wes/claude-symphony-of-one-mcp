@@ -1,0 +1,84 @@
+# Development files
+.env
+.env.local
+.env.*.local
+
+# Data directories (created at runtime)
+data/
+shared/
+*.db
+*.log
+
+# Test files and artifacts
+test-*
+*-test.*
+coverage/
+
+# Development and build artifacts
+node_modules/
+.npm
+*.tgz
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Old/backup files
+*-old.*
+*-backup.*
+*.bak
+
+# Git files
+.git/
+.gitignore
+
+# Runtime files
+.pid
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Dependency directories
+jspm_packages/
+
+# Yarn
+yarn-error.log
+.yarn-integrity
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless

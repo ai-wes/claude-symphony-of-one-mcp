@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "claude-symphony-of-one": {
+      "command": "node",
+      "args": ["C:\\Users\\wes\\Desktop\\claude-symphony-of-one-mcp\\mcp-server.js"],
+      "env": {
+        "CHAT_SERVER_URL": "http://localhost:3000",
+        "SHARED_DIR": "C:\\Users\\wes\\Desktop\\claude-symphony-of-one-mcp\\shared",
+        "AGENT_NAME": "Claude-Agent-1"
+      }
+    }
+  }
+}

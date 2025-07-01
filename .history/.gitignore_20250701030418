@@ -1,0 +1,4 @@
+/.env
+/.npmignore
+/data
+/yarn.lock

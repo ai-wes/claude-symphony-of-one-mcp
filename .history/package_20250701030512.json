@@ -1,0 +1,73 @@
+{
+  "name": "symphony-of-one-mcp",
+  "version": "1.0.0",
+  "description": "Symphony of One MCP - enables multi-agent collaboration through centralized chat rooms with persistent memory and tagging",
+  "type": "module",
+  "main": "mcp-server.js",
+  "bin": {
+    "symphony-of-one-mcp": "./mcp-server.js",
+    "symphony-of-one-server": "./server.js",
+    "symphony-of-one-cli": "./cli.js"
+  },
+  "scripts": {
+    "start": "node mcp-server.js",
+    "server": "node server.js",
+    "cli": "node cli.js",
+    "setup": "npm install && node setup.js",
+    "test": "node test.js",
+    "prepublishOnly": "npm run test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "axios": "^1.6.0",
+    "chalk": "^5.3.0",
+    "chokidar": "^3.5.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.0",
+    "readline": "^1.3.0",
+    "socket.io": "^4.7.0",
+    "socket.io-client": "^4.7.0",
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0",
+    "zod": "^3.22.0"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "chat",
+    "agents",
+    "collaboration",
+    "multi-agent",
+    "ai",
+    "orchestration",
+    "tagging",
+    "memory",
+    "notifications",
+    "real-time"
+  ],
+  "author": "Symphony of One MCP Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ai-wes/symphony-of-one-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ai-wes/symphony-of-one-mcp/issues"
+  },
+  "homepage": "https://github.com/ai-wes/symphony-of-one-mcp#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "mcp-server.js",
+    "server.js",
+    "cli.js",
+    "setup.js",
+    "test.js",
+    "README.md",
+    ".env.example"
+  ],
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
