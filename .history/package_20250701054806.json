@@ -1,6 +1,6 @@
 {
   "name": "claude-symphony-of-one-mcp",
-  "version": "1.0.3",
+  "version": "1.0.2",
   "description": "Symphony of One MCP - enables multi-agent collaboration through centralized chat rooms with persistent memory and tagging",
   "type": "module",
   "main": "mcp-server.js",
