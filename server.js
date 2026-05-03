@@ -22,6 +22,10 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json());
 
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", service: "claude-symphony-of-one-hub", uptime: process.uptime() });
+});
+
 // Configuration
 const SHARED_DIR = process.env.SHARED_DIR || path.join(process.cwd(), "shared");
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
@@ -778,7 +782,7 @@ io.on("connection", (socket) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || "3000", 10);
 
 async function startServer() {
   await initializeSystem();
