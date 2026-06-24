@@ -137,6 +137,8 @@ server.registerTool(
     if (params.agentName) {
       agentName = params.agentName;
     }
+    // Bug 2 fix: clear stale cache from any previous room
+    clearRoomCache();
 
     try {
       const response = await axios.post(
@@ -196,9 +198,7 @@ server.registerTool(
     }
 
     try {
-      await axios.post(`${SERVER_URL}/api/leave`, {
-        agentId: currentAgentId,
-      });
+      await axios.post(`${SERVER_URL}/api/leave/${currentAgentId}`);
 
       if (socket) {
         socket.disconnect();
@@ -804,6 +804,20 @@ server.registerTool(
     }
   }
 );
+
+// Exported helpers for testing (and for clearRoomCache used in room_join)
+export function clearRoomCache() {
+  messageHistory = [];
+  notifications = [];
+}
+
+export function getMessageHistory() {
+  return messageHistory;
+}
+
+export function getNotifications() {
+  return notifications;
+}
 
 // Start the server
 async function main() {

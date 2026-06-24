@@ -50,9 +50,8 @@ const logger = winston.createLogger({
 });
 
 // Database setup
-const db = new sqlite3.Database(
-  path.join(DATA_DIR, "claude-symphony-of-one.db")
-);
+const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, "claude-symphony-of-one.db");
+const db = new sqlite3.Database(DB_PATH);
 
 // In-memory storage (with database persistence)
 const rooms = new Map();
@@ -78,71 +77,76 @@ async function initializeSystem() {
     logger.info(`Created data directory: ${DATA_DIR}`);
   }
 
-  // Initialize database tables
-  db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS rooms (
-      id TEXT PRIMARY KEY,
-      name TEXT UNIQUE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      is_active BOOLEAN DEFAULT 1,
-      settings TEXT
-    )`);
+  // Initialize database tables — wrapped in a Promise so loadDataFromDatabase
+  // only runs after all CREATE TABLE statements have completed.
+  await new Promise((resolve, reject) => {
+    db.serialize(() => {
+      db.run(`CREATE TABLE IF NOT EXISTS rooms (
+        id TEXT PRIMARY KEY,
+        name TEXT UNIQUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT 1,
+        settings TEXT
+      )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS agents (
-      id TEXT PRIMARY KEY,
-      name TEXT,
-      room TEXT,
-      capabilities TEXT,
-      joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      last_active DATETIME DEFAULT CURRENT_TIMESTAMP,
-      status TEXT DEFAULT 'active'
-    )`);
+      db.run(`CREATE TABLE IF NOT EXISTS agents (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        room TEXT,
+        capabilities TEXT,
+        joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_active DATETIME DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'active'
+      )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS messages (
-      id TEXT PRIMARY KEY,
-      room TEXT,
-      agent_id TEXT,
-      agent_name TEXT,
-      content TEXT,
-      type TEXT DEFAULT 'message',
-      mentions TEXT,
-      metadata TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+      db.run(`CREATE TABLE IF NOT EXISTS messages (
+        id TEXT PRIMARY KEY,
+        room TEXT,
+        agent_id TEXT,
+        agent_name TEXT,
+        content TEXT,
+        type TEXT DEFAULT 'message',
+        mentions TEXT,
+        metadata TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS tasks (
-      id TEXT PRIMARY KEY,
-      room TEXT,
-      title TEXT,
-      description TEXT,
-      assignee TEXT,
-      creator TEXT,
-      priority TEXT DEFAULT 'medium',
-      status TEXT DEFAULT 'todo',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+      db.run(`CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        room TEXT,
+        title TEXT,
+        description TEXT,
+        assignee TEXT,
+        creator TEXT,
+        priority TEXT DEFAULT 'medium',
+        status TEXT DEFAULT 'todo',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS agent_memory (
-      id TEXT PRIMARY KEY,
-      agent_id TEXT,
-      room TEXT,
-      key TEXT,
-      value TEXT,
-      type TEXT DEFAULT 'note',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      expires_at DATETIME
-    )`);
+      db.run(`CREATE TABLE IF NOT EXISTS agent_memory (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT,
+        room TEXT,
+        key TEXT,
+        value TEXT,
+        type TEXT DEFAULT 'note',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME
+      )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS notifications (
-      id TEXT PRIMARY KEY,
-      agent_id TEXT,
-      room TEXT,
-      message TEXT,
-      type TEXT DEFAULT 'mention',
-      is_read BOOLEAN DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+      db.run(`CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT,
+        room TEXT,
+        message TEXT,
+        type TEXT DEFAULT 'mention',
+        is_read BOOLEAN DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`, (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
   });
 
   // Load existing data into memory
@@ -170,7 +174,31 @@ async function loadDataFromDatabase() {
       });
 
       logger.info(`Loaded ${rows.length} rooms from database`);
-      resolve();
+
+      // Bug 3 fix: also load tasks from DB into the tasks Map
+      db.all("SELECT * FROM tasks", (taskErr, taskRows) => {
+        if (taskErr) {
+          logger.error("Failed to load tasks from database:", taskErr);
+          // Non-fatal — resolve anyway so the server still starts
+          return resolve();
+        }
+        taskRows.forEach((row) => {
+          tasks.set(row.id, {
+            id: row.id,
+            room: row.room,
+            title: row.title,
+            description: row.description,
+            assignee: row.assignee,
+            creator: row.creator,
+            priority: row.priority,
+            status: row.status,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          });
+        });
+        logger.info(`Loaded ${taskRows.length} tasks from database`);
+        resolve();
+      });
     });
   });
 }
@@ -559,7 +587,19 @@ app.post("/api/tasks", (req, res) => {
   };
 
   tasks.set(task.id, task);
+
+  // Bug 3 fix: persist task to DB on creation
+  db.run(
+    "INSERT INTO tasks (id, room, title, description, assignee, creator, priority, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [task.id, task.room, task.title, task.description, task.assignee, task.creator, task.priority, task.status, task.createdAt, task.updatedAt]
+  );
+
   io.to(roomName).emit("task", { type: "created", task });
+
+  // Bug 5 fix: also emit task_assigned so mcp-server.js listeners fire
+  if (task.assignee) {
+    io.to(roomName).emit("task_assigned", task);
+  }
 
   res.json({ success: true, task });
 });
@@ -568,6 +608,34 @@ app.get("/api/tasks/:room", (req, res) => {
   const { room } = req.params;
   const roomTasks = Array.from(tasks.values()).filter((t) => t.room === room);
   res.json({ tasks: roomTasks });
+});
+
+// Bug 4 fix: single-task GET and PUT routes used by the CLI
+app.get("/api/tasks/:room/:taskId", (req, res) => {
+  const { room, taskId } = req.params;
+  const task = tasks.get(taskId);
+  if (!task || task.room !== room) {
+    return res.status(404).json({ success: false, error: "Task not found" });
+  }
+  res.json({ success: true, task });
+});
+
+app.put("/api/tasks/:room/:taskId", (req, res) => {
+  const { room, taskId } = req.params;
+  const task = tasks.get(taskId);
+  if (!task || task.room !== room) {
+    return res.status(404).json({ success: false, error: "Task not found" });
+  }
+  const { status, assignee, priority } = req.body;
+  if (status) task.status = status;
+  if (assignee) task.assignee = assignee;
+  if (priority) task.priority = priority;
+  task.updatedAt = new Date().toISOString();
+  db.run(
+    "UPDATE tasks SET status = ?, assignee = ?, priority = ?, updated_at = ? WHERE id = ?",
+    [task.status, task.assignee, task.priority, task.updatedAt, task.id]
+  );
+  res.json({ success: true, task });
 });
 
 // Agent management endpoints

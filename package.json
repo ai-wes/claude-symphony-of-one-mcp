@@ -18,7 +18,8 @@
     "demo": "node demo-enhanced-cli.js",
     "config": "node generate-config.js",
     "setup": "npm install && node setup.js",
-    "test": "node test.js",
+    "test": "node --test test/*.test.js",
+    "test:smoke": "node test.js",
     "prepublishOnly": "npm run test"
   },
   "dependencies": {
