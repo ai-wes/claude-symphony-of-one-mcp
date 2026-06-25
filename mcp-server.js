@@ -12,6 +12,10 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER_URL = process.env.CHAT_SERVER_URL || "http://localhost:3000";
 const SHARED_DIR = process.env.SHARED_DIR || path.join(process.cwd(), "shared");
+// Set SYMPHONY_USE_MESSAGE_CACHE=true to use the local Socket.IO buffer for
+// get_messages instead of always fetching from the server. Faster for
+// single-agent local use; incorrect for multi-agent cross-machine coordination.
+const USE_MESSAGE_CACHE = process.env.SYMPHONY_USE_MESSAGE_CACHE === 'true';
 
 // Global state
 let currentAgentId = null;
@@ -313,8 +317,11 @@ server.registerTool(
     }
 
     try {
-      // First try to get from local history
-      if (!params.since && messageHistory.length > 0) {
+      // Default: always fetch from server so agents on different machines see
+      // authoritative state rather than a partial local Socket.IO buffer.
+      // Single-agent local deployments can opt into the fast path via:
+      //   SYMPHONY_USE_MESSAGE_CACHE=true
+      if (USE_MESSAGE_CACHE && !params.since && messageHistory.length > 0) {
         const limit = params.limit || 50;
         const messages = messageHistory.slice(-limit);
         return {
@@ -327,7 +334,6 @@ server.registerTool(
         };
       }
 
-      // Otherwise fetch from server
       const response = await axios.get(
         `${SERVER_URL}/api/messages/${currentRoom}`,
         {
