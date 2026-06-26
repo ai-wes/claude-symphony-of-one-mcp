@@ -12,6 +12,10 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER_URL = process.env.CHAT_SERVER_URL || "http://localhost:3000";
 const SHARED_DIR = process.env.SHARED_DIR || path.join(process.cwd(), "shared");
+// Set SYMPHONY_USE_MESSAGE_CACHE=true to skip the server round-trip for get_messages
+// when the local buffer is non-empty. Useful for single-agent local dev; off by default
+// so multi-agent setups always see the authoritative server state.
+const USE_MESSAGE_CACHE = process.env.SYMPHONY_USE_MESSAGE_CACHE === "true";
 
 // Global state
 let currentAgentId = null;
@@ -313,8 +317,9 @@ server.registerTool(
     }
 
     try {
-      // First try to get from local history
-      if (!params.since && messageHistory.length > 0) {
+      // Use local cache only when explicitly opted in and no time filter is requested.
+      // Default is always-server so multi-agent setups see authoritative state.
+      if (USE_MESSAGE_CACHE && !params.since && messageHistory.length > 0) {
         const limit = params.limit || 50;
         const messages = messageHistory.slice(-limit);
         return {
@@ -327,7 +332,6 @@ server.registerTool(
         };
       }
 
-      // Otherwise fetch from server
       const response = await axios.get(
         `${SERVER_URL}/api/messages/${currentRoom}`,
         {
@@ -384,7 +388,29 @@ server.registerTool(
       };
     }
 
-    let filtered = notifications;
+    // Always fetch from server and merge with local socket-received notifications.
+    // The local array only contains events received since this session's room_join;
+    // server fetch catches @mentions sent before this agent was online.
+    let serverNotifs = [];
+    try {
+      const response = await axios.get(
+        `${SERVER_URL}/api/notifications/${currentAgentId}`,
+        { params: { agentName, unreadOnly: params.unreadOnly ? "true" : undefined } }
+      );
+      serverNotifs = (response.data?.notifications || []).map(n => ({
+        ...n,
+        read: !!n.is_read,
+        timestamp: n.created_at,
+      }));
+    } catch (_) {
+      // fall through to local-only
+    }
+    // Merge: server results take precedence; deduplicate by id.
+    const seen = new Set(serverNotifs.map(n => n.id));
+    const localOnly = notifications.filter(n => n.id && !seen.has(n.id));
+    const allNotifications = [...serverNotifs, ...localOnly];
+
+    let filtered = allNotifications;
 
     if (params.unreadOnly) {
       filtered = filtered.filter((n) => !n.read);
@@ -394,10 +420,10 @@ server.registerTool(
       filtered = filtered.filter((n) => n.type === params.type);
     }
 
-    const unreadCount = notifications.filter((n) => !n.read).length;
-    const notificationList = filtered.map(n => 
-      `[${n.type.toUpperCase()}] ${n.message || (n.task ? n.task.title : 'System notification')} - ${new Date(n.timestamp).toLocaleString()}${n.read ? ' (READ)' : ' (UNREAD)'}`
-    ).join('\n');
+    const unreadCount = allNotifications.filter((n) => !n.read).length;
+    const notificationList = filtered.map(n =>
+      `[${n.type.toUpperCase()}] ${n.message || (n.task ? n.task.title : "System notification")} - ${new Date(n.timestamp).toLocaleString()}${n.read ? " (READ)" : " (UNREAD)"}`
+    ).join("\n");
 
     return {
       content: [

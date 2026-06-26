@@ -137,12 +137,18 @@ async function initializeSystem() {
     db.run(`CREATE TABLE IF NOT EXISTS notifications (
       id TEXT PRIMARY KEY,
       agent_id TEXT,
+      agent_name TEXT,
       room TEXT,
       message TEXT,
       type TEXT DEFAULT 'mention',
       is_read BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    // Migration: add agent_name to existing DBs created before this column existed.
+    // ALTER TABLE IF NOT EXISTS is not supported in older SQLite, so we ignore the
+    // "duplicate column" error that fires when the column already exists.
+    db.run("ALTER TABLE notifications ADD COLUMN agent_name TEXT", () => {});
   });
 
   // Load existing data into memory
@@ -188,51 +194,46 @@ function parseMentions(content) {
   return mentions;
 }
 
-// Create notifications for mentioned agents
+// Create notifications for mentioned agents.
+// Persists ALL mentions by agent_name so offline agents can retrieve them later.
 async function createNotifications(message, mentions) {
-  const notifications = mentions
-    .map((agentName) => ({
+  const notifications = mentions.map((mentionedName) => {
+    const agent = findAgentByName(mentionedName);
+    return {
       id: uuidv4(),
-      agent_id: findAgentByName(agentName)?.id,
+      agent_id: agent?.id || null,
+      agent_name: mentionedName,
       room: message.room,
-      message: `${message.agentName} mentioned you: ${message.content.substring(
-        0,
-        100
-      )}...`,
+      message: `${message.agentName} mentioned you: ${message.content.substring(0, 100)}...`,
       type: "mention",
       created_at: new Date().toISOString(),
-    }))
-    .filter((n) => n.agent_id); // Only create notifications for existing agents
+    };
+  });
 
   notifications.forEach((notification) => {
     db.run(
-      "INSERT INTO notifications (id, agent_id, room, message, type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        notification.id,
-        notification.agent_id,
-        notification.room,
-        notification.message,
-        notification.type,
-        notification.created_at,
-      ]
+      "INSERT INTO notifications (id, agent_id, agent_name, room, message, type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [notification.id, notification.agent_id, notification.agent_name,
+       notification.room, notification.message, notification.type, notification.created_at]
     );
 
-    // Send real-time notification to agent if connected
-    const agent = agents.get(notification.agent_id);
-    if (agent && agent.socketId) {
-      io.to(agent.socketId).emit("notification", notification);
+    // Send real-time notification to agent if currently connected
+    if (notification.agent_id) {
+      const agent = agents.get(notification.agent_id);
+      if (agent && agent.socketId) {
+        io.to(agent.socketId).emit("notification", notification);
+      }
     }
   });
 
   return notifications;
 }
 
-// Find agent by name in current agents
+// Find agent by name (case-insensitive)
 function findAgentByName(agentName) {
+  const lower = agentName.toLowerCase();
   for (const agent of agents.values()) {
-    if (agent.name === agentName) {
-      return agent;
-    }
+    if (agent.name.toLowerCase() === lower) return agent;
   }
   return null;
 }
@@ -713,10 +714,12 @@ app.get("/api/memory/:agentId", (req, res) => {
 
 app.get("/api/notifications/:agentId", (req, res) => {
   const { agentId } = req.params;
-  const { unreadOnly = false } = req.query;
+  const { unreadOnly = false, agentName } = req.query;
 
-  let query = "SELECT * FROM notifications WHERE agent_id = ?";
-  const params = [agentId];
+  // Match by agent_id OR by agent_name so agents that joined after a mention
+  // was sent (and therefore have a new agent_id) can still retrieve their notifications.
+  let query = "SELECT * FROM notifications WHERE (agent_id = ? OR LOWER(agent_name) = LOWER(?))";
+  const params = [agentId, agentName || agentId];
 
   if (unreadOnly === "true") {
     query += " AND is_read = 0";
