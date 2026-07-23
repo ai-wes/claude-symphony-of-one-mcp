@@ -11,6 +11,7 @@ import {
   QUICK_ASSIGNMENTS,
   getRolesByCategory,
   getRoleNames,
+  getCategories,
   getRole,
   formatTaskFromTemplate,
   getQuickAssignment,
@@ -342,15 +343,7 @@ class OrchestratorCLI {
           type: "list",
           name: "category",
           message: "Select role category:",
-          choices: [
-            "Development",
-            "Analysis",
-            "Management",
-            "Quality",
-            "Operations",
-            "Documentation",
-            "Research",
-          ],
+          choices: getCategories(),
         },
       ]);
 
@@ -433,16 +426,7 @@ class OrchestratorCLI {
         type: "list",
         name: "category",
         message: "Role category:",
-        choices: [
-          "Development",
-          "Analysis",
-          "Management",
-          "Quality",
-          "Operations",
-          "Documentation",
-          "Research",
-          "Custom",
-        ],
+        choices: [...getCategories(), "Custom"],
       },
       {
         type: "input",
@@ -546,15 +530,7 @@ class OrchestratorCLI {
   async listAllRoles() {
     console.log(chalk.cyan("\n🎭 Available Agent Roles:\n"));
 
-    const categories = [
-      "Development",
-      "Analysis",
-      "Management",
-      "Quality",
-      "Operations",
-      "Documentation",
-      "Research",
-    ];
+    const categories = getCategories();
 
     for (const category of categories) {
       console.log(chalk.yellow(`${category}:`));

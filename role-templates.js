@@ -1,7 +1,17 @@
 // Agent Role Templates for Symphony of One MCP
 // Predefined roles with prompts, tasks, and capabilities
+//
+// CUSTOMIZATION: set ROLES_CONFIG env var to an absolute path of a JSON file
+// with { roles, taskTemplates, quickAssignments } to override any or all defaults.
+// Example: ROLES_CONFIG=/path/to/my-roster.json
+// The file format mirrors the DEFAULT_ROLES / DEFAULT_TASK_TEMPLATES /
+// DEFAULT_QUICK_ASSIGNMENTS objects below. Any missing key falls back to the default.
 
-export const AGENT_ROLES = {
+import fs from "node:fs";
+
+// ─── Generic defaults (upstream Symphony roles) ──────────────────────────────
+
+export const DEFAULT_ROLES = {
   // Development Roles
   SENIOR_DEVELOPER: {
     name: "Senior Developer",
@@ -327,7 +337,7 @@ Provide thorough, unbiased research with actionable insights and clear recommend
   },
 };
 
-export const TASK_TEMPLATES = {
+export const DEFAULT_TASK_TEMPLATES = {
   // Development Task Templates
   CODE_REVIEW: {
     title: "Code Review: {feature_name}",
@@ -447,8 +457,7 @@ export const TASK_TEMPLATES = {
   },
 };
 
-export const QUICK_ASSIGNMENTS = {
-  // Quick role-based assignments
+export const DEFAULT_QUICK_ASSIGNMENTS = {
   EMERGENCY_BUG_FIX: {
     title: "🚨 Emergency Bug Fix",
     description: "Critical bug requiring immediate attention",
@@ -494,7 +503,49 @@ export const QUICK_ASSIGNMENTS = {
   },
 };
 
+// ─── Config loading ───────────────────────────────────────────────────────────
+// Read at module load. If ROLES_CONFIG points at a readable JSON file, merge its
+// keys over the defaults. Any key absent from the file falls back to the default.
+
+function loadConfig() {
+  const configPath = process.env.ROLES_CONFIG;
+  if (configPath) {
+    try {
+      const raw = fs.readFileSync(configPath, "utf8");
+      const cfg = JSON.parse(raw);
+      return {
+        roles: cfg.roles ?? DEFAULT_ROLES,
+        taskTemplates: cfg.taskTemplates ?? DEFAULT_TASK_TEMPLATES,
+        quickAssignments: cfg.quickAssignments ?? DEFAULT_QUICK_ASSIGNMENTS,
+      };
+    } catch (err) {
+      // Config path set but unreadable/unparseable — fall through to defaults.
+      // Emit a warning so operators know the file was ignored.
+      process.stderr.write(
+        `[role-templates] Warning: could not load ROLES_CONFIG="${configPath}": ${err.message}\n`
+      );
+    }
+  }
+  return {
+    roles: DEFAULT_ROLES,
+    taskTemplates: DEFAULT_TASK_TEMPLATES,
+    quickAssignments: DEFAULT_QUICK_ASSIGNMENTS,
+  };
+}
+
+const _config = loadConfig();
+
+// ─── Public exports (same surface as before) ─────────────────────────────────
+
+export const AGENT_ROLES = _config.roles;
+export const TASK_TEMPLATES = _config.taskTemplates;
+export const QUICK_ASSIGNMENTS = _config.quickAssignments;
+
 // Helper functions for role management
+export function getCategories() {
+  return [...new Set(Object.values(AGENT_ROLES).map((r) => r.category))];
+}
+
 export function getRolesByCategory(category) {
   return Object.entries(AGENT_ROLES)
     .filter(([_, role]) => role.category === category)

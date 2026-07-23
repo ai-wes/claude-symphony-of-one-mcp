@@ -3,3 +3,11 @@
 /data
 /yarn.lock
 node_modules/
+# Aeonia: runtime artifacts + generated configs
+server.log
+server.error.log
+*.log
+data/*.db
+claude-config-unix.json
+claude-config-windows.json
+claude-config-wsl.json

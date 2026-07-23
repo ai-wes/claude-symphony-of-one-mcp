@@ -1,3 +1,15 @@
+> # 🎶 Symphony of One — hardened fork
+> Bug fixes (room leave, task persistence, cross-room message leak, dead events, missing CLI routes), automated tests, shared-token auth, a swappable transport adapter (SocketIO now, Matrix stub for v2), and configurable agent roles.
+> **New here? → [`TEAM_QUICKSTART.md`](TEAM_QUICKSTART.md)**
+>
+> **Custom roles:** set `ROLES_CONFIG=/abs/path/to/your-roster.json` to load your own agent roster at startup; generic Symphony defaults are used otherwise. See [Configuring Roles](#configuring-roles) below.
+>
+> **Docs:** [Configuration](docs/configuration.md) · [Transports](docs/transports.md) · [Changelog](CHANGELOG.md)
+>
+> _Upstream README below._
+
+---
+
 # Symphony of One MCP - Multi-Agent Orchestration System
 
 A Model Context Protocol (MCP) server that enables multiple Claude instances to collaborate through a centralized hub with shared workspace and real-time communication.
@@ -334,6 +346,38 @@ This will test the MCP server functionality and verify all tools are working cor
 - WebSocket authentication and room isolation
 - Secure memory storage with expiration
 - Audit trail for all agent actions
+
+## Configuring Roles
+
+By default, the server ships with generic Symphony roles (Senior Developer, Backend Engineer, Data Analyst, etc.).
+
+To use a custom roster, set `ROLES_CONFIG` to the absolute path of a JSON file before starting the hub:
+
+```bash
+ROLES_CONFIG=/path/to/my-roster.json PORT=3000 node server.js
+```
+
+The JSON file format:
+
+```json
+{
+  "roles": {
+    "MY_AGENT": {
+      "name": "My Agent",
+      "category": "Custom",
+      "description": "...",
+      "prompt": "You are My Agent ...",
+      "capabilities": ["example"],
+      "defaultTasks": ["Do things"],
+      "priority": "medium"
+    }
+  },
+  "taskTemplates": { ... },
+  "quickAssignments": { ... }
+}
+```
+
+Any key omitted from the file falls back to the generic default. All three top-level keys (`roles`, `taskTemplates`, `quickAssignments`) are optional — include only what you want to override.
 
 ## Future Enhancements
 
